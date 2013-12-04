@@ -15,17 +15,17 @@ module Fission
             payload[:data][:router] = route
           else
             warn "Unable to discovery routing information for payload: #{payload.inspect}"
-            return completed_job(:router, payload, message) # short circuit
+            return job_completed(:router, payload, message) # short circuit
           end
         end
-        destination = payload[:data][:router].shift
+        payload[:data][:router].shift while Array(payload[:complete]).include?(payload[:data][:router].first)
+        destination = payload[:data][:router].first
         if(destination)
           info "Router is forwarding #{message} to next destination #{destination}"
-          payload[:job] = destination
-          forward(payload)
+          transmit(destination, payload)
         else
           info "Payload has completed custom routing. Marking #{message} as complete!"
-          completed_job(:router, payload, message)
+          job_completed(:router, payload, message)
         end
       end
 
