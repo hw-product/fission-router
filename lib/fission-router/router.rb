@@ -51,7 +51,9 @@ module Fission
       end
 
       def config_defined_routing(payload)
-        route = Carnivore::Config.get(:fission, :router, :route)
+        key = retrieve(payload, :data, :router, :action)
+        path = [:fission, :router] + (key ? [:routes, key] : [:route])
+        route = Carnivore::Config.get(*path)
         unless(route)
           error "No route defined within configuration. Setting empty routing path!"
           route = []
