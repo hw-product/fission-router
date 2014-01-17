@@ -9,17 +9,17 @@ module Fission
 
       def execute(message)
         payload = unpack(message)
-        unless(payload[:data][:router])
+        unless(retrieve(payload, :data, :router, :route))
           route = discover_route(payload)
           if(route)
-            payload[:data][:router] = route
+            payload[:data][:router][:route] = route
           else
             warn "Unable to discovery routing information for payload: #{payload.inspect}"
             return job_completed(:router, payload, message) # short circuit
           end
         end
-        payload[:data][:router].shift while Array(payload[:complete]).include?(payload[:data][:router].first)
-        destination = payload[:data][:router].first
+        payload[:data][:router][:route].shift while Array(payload[:complete]).include?(payload[:data][:router][:route].first)
+        destination = payload[:data][:router][:route].first
         if(destination)
           info "Router is forwarding #{message} to next destination #{destination}"
           transmit(destination, payload)
@@ -58,7 +58,7 @@ module Fission
           error "No route defined within configuration. Setting empty routing path!"
           route = []
         end
-        route
+        route.dup
       end
 
     end
