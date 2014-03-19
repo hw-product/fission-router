@@ -23,6 +23,7 @@ module Fission
         if(destination)
           info "Router is forwarding #{message} to next destination #{destination}"
           transmit(destination, payload)
+          message.confirm!
         else
           info "Payload has completed custom routing. Marking #{message} as complete!"
           job_completed(:router, payload, message)
