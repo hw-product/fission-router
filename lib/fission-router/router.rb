@@ -14,7 +14,7 @@ module Fission
           if(route)
             payload[:data][:router][:route] = route
           else
-            warn "Unable to discovery routing information for payload: #{payload.inspect}"
+            warn "Unable to discover routing information for payload: #{payload.inspect}"
             return job_completed(:router, payload, message) # short circuit
           end
         end
