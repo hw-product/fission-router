@@ -9,10 +9,10 @@ module Fission
 
       def execute(message)
         payload = unpack(message)
-        unless(retrieve(payload, :data, :router, :route))
+        unless(payload.get(:data, :router, :route))
           route = discover_route(payload)
           if(route)
-            payload[:data][:router][:route] = route
+            payload.set(:data, :router, :route, route)
           else
             warn "Unable to discover routing information for payload: #{payload.inspect}"
             return job_completed(:router, payload, message) # short circuit
