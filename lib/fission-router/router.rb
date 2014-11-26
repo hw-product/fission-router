@@ -28,6 +28,7 @@ module Fission
           info "Payload has completed custom routing. Marking #{message} as complete!"
           job_completed(:router, payload, message)
         end
+        async.store_payload(payload)
       end
 
       # TODO: This should have fission-data-models attached and be
