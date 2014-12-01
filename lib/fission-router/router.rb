@@ -7,18 +7,67 @@ module Fission
       # NOTE: no custom `valid?` since all received messages on this
       # source are valid
 
+      # Route payloads
+      #
+      # @param message [Carnivore::Message]
       def execute(message)
         payload = unpack(message)
-        unless(payload.get(:data, :router, :route))
-          route = discover_route(payload)
-          if(route)
-            payload.set(:data, :router, :route, route)
-          else
-            warn "Unable to discover routing information for payload: #{payload.inspect}"
-            return job_completed(:router, payload, message) # short circuit
-          end
+        if(payload.get(:error))
+          process_error(message, payload)
+        else
+          set_route(payload)
+          route_payload(message, payload)
         end
-        payload[:data][:router][:route].shift while Array(payload[:complete]).include?(payload[:data][:router][:route].first)
+        async.store_payload(payload)
+      end
+
+      # If payload is in error state, send
+      # to custom error handler if provided
+      #
+      # @param message [Carnivore::Message]
+      # @param payload [Smash]
+      # @return [Smash] payload
+      def process_error(message, payload)
+        [discover_route(payload)[:error]].flatten.compact.each do |dest|
+          warn "Error routing for message (#{message}) -> #{dest}"
+          transmit(dest, payload)
+        end
+      end
+
+      # If payload is in complete state, send
+      # to custom complete handler if provided
+      #
+      # @param message [Carnivore::Message]
+      # @param payload [Smash]
+      # @return [Smash] payload
+      def process_complete(message, payload)
+        [discover_route(payload)[:complete]].flatten.compact.each do |dest|
+          info "Complete routing for message (#{message}) -> #{dest}"
+          transmit(dest, payload)
+        end
+      end
+
+      # Discover route and set within payload
+      #
+      # @param payload [Smash]
+      # @return [Smash] payload
+      def set_route(payload)
+        payload.set(:data, :router, :route,
+          [discover_route(payload)[:path]].flatten.compact
+        )
+        payload
+      end
+
+      # Route payload to defined path
+      #
+      # @param message [Carnivore::Message]
+      # @param payload [Smash]
+      # @return [Smash] payload
+      def route_payload(message, payload)
+        payload_complete = [payload[:complete]].flatten.compact
+        while(payload_complete.include?(payload[:data][:router][:route].first))
+          payload[:data][:router][:route].shift
+        end
         destination = payload[:data][:router][:route].first
         if(destination)
           info "Router is forwarding #{message} to next destination #{destination}"
@@ -27,40 +76,42 @@ module Fission
         else
           info "Payload has completed custom routing. Marking #{message} as complete!"
           job_completed(:router, payload, message)
+          process_complete(message, payload)
         end
-        async.store_payload(payload)
       end
 
-      # TODO: This should have fission-data-models attached and be
-      # able to do rule based lookups on state of data. Will need to
-      # have a user validator to get proper user population.
+      # Determine route for given payload
       #
-      # This method should just call to specialized methods based on configuration
+      # @param payload [Smash]
+      # @return [Smash] routing information
       def discover_route(payload)
-        case Carnivore::Config.get(:fission, :router, :behavior)
-        when 'user'
-          user_defined_routing(payload)
-        when 'config'
-          config_defined_routing(payload)
-        else
-          error "Unknown routing behavior encountered. Setting empty routing path! (behavior: #{Carnivore::Config.get(:fission, :router, :behavior)})"
-          []
+        if(enabled?(:data))
+          route = user_defined_route(payload)
         end
-      end
-
-      def user_defined_routing(payload)
-        abort NotImplemented.new('User defined routing not yet supported')
-      end
-
-      def config_defined_routing(payload)
-        key = retrieve(payload, :data, :router, :action)
-        path = [:fission, :router] + (key ? [:routes, key] : [:route])
-        route = Carnivore::Config.get(*path)
         unless(route)
-          error "No route defined within configuration. Setting empty routing path!"
-          route = []
+          route = config_defined_route(payload)
         end
-        route.dup
+        route || Smash.new
+      end
+
+      # Determine route for given payload from stored
+      # data route provided by user
+      #
+      # @param payload [Smash]
+      # @return [Smash, NilClass] route information
+      # @todo the implementation!
+      def user_defined_route(payload)
+        nil
+      end
+
+      # Determine route for given payload from configuration
+      #
+      # @param payload [Smash]
+      # @return [Smash, NilClass] route information
+      def config_defined_route(payload)
+        config.get(:router, :routes,
+          payload.fetch(:data, :rest_api, :action, 'default')
+        )
       end
 
     end
