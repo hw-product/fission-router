@@ -1,3 +1,7 @@
+## v0.1.8
+* Only set route if unset
+* Use config directly, not via helper
+
 ## v0.1.6
 * Use fetch on payload route discovery
 
