@@ -52,9 +52,11 @@ module Fission
       # @param payload [Smash]
       # @return [Smash] payload
       def set_route(payload)
-        payload.set(:data, :router, :route,
-          [discover_route(payload)[:path]].flatten.compact
-        )
+        unless(payload.get(:data, :router, :route))
+          payload.set(:data, :router, :route,
+            [discover_route(payload)[:path]].flatten.compact
+          )
+        end
         payload
       end
 
@@ -110,10 +112,10 @@ module Fission
       # @return [Smash, NilClass] route information
       def config_defined_route(payload)
         route = payload.fetch(:data, :rest_api, :action,
-          config.get(:router, :routes, 'default')
+          Carnivore::Config.get(:fission, :router, :routes, 'default')
         )
         if(route.is_a?(String))
-          route = config.get(:router, :routes, route)
+          route = Carnivore::Config.get(:fission, :router, :routes, route)
         end
         route
       end
