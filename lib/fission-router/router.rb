@@ -53,9 +53,11 @@ module Fission
       # @return [Smash] payload
       def set_route(payload)
         unless(payload.get(:data, :router, :route))
+          route_info = discover_route(payload)
           payload.set(:data, :router, :route,
-            [discover_route(payload)[:path]].flatten.compact
+            [route_info[:path]].flatten.compact
           )
+          payload.set(:data, :router, :action, route_info[:name])
         end
         payload
       end
@@ -115,7 +117,17 @@ module Fission
           Carnivore::Config.get(:fission, :router, :routes, 'default')
         )
         if(route.is_a?(String))
+          action = route
           route = Carnivore::Config.get(:fission, :router, :routes, route)
+        else
+          action = 'default'
+        end
+        if(route)
+          route.merge(
+            Smash.new(
+              :name => action
+            )
+          )
         end
         route
       end
