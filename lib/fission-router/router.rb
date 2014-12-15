@@ -123,7 +123,7 @@ module Fission
           action = 'default'
         end
         if(route)
-          route.merge(
+          route.merge!(
             Smash.new(
               :name => action
             )
