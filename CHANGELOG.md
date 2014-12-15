@@ -1,3 +1,6 @@
+## v0.1.10
+* Set router action into payload (was removed from rest-api)
+
 ## v0.1.8
 * Only set route if unset
 * Use config directly, not via helper
