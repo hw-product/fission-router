@@ -72,7 +72,6 @@ module Fission
         while(payload_complete.include?(payload[:data][:router][:route].first))
           payload[:data][:router][:route].shift
         end
-        route_formatting!(payload)
         destination = payload[:data][:router][:route].first
         if(destination)
           info "Router is forwarding #{message} to next destination #{destination}"
@@ -131,27 +130,6 @@ module Fission
           )
         end
         route
-      end
-
-      # Apply any formatters that match the destination within the
-      # available route information
-      #
-      # @param payload [Smash] payload
-      # @return [Smash]
-      # @note rescue out formatting error since we are not checking
-      #   source to prevent unexpected errors from halting processing
-      def route_formatting!(payload)
-        route = payload.fetch(:data, :router, :route, []).map(&:to_sym)
-        formatters.each do |formatter|
-          if(route.include?(formatter.destination))
-            begin
-              formatter.format(payload)
-            rescue => e
-              warn "Formatter failed <#{formatter.source}:#{formatter.destination}> #{e.class}: #{e}"
-            end
-          end
-        end
-        payload
       end
 
     end
