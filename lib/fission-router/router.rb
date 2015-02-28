@@ -113,7 +113,7 @@ module Fission
       # @param payload [Smash]
       # @return [Smash, NilClass] route information
       def config_defined_route(payload)
-        route = payload.fetch(:data, :rest_api, :action,
+        route = payload.fetch(:data, :router, :requested_route,
           Carnivore::Config.get(:fission, :router, :routes, 'default')
         )
         if(route.is_a?(String))
