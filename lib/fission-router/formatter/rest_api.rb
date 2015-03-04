@@ -17,7 +17,7 @@ module Fission
         def format(payload)
           unless(payload.get(:data, :router, :requested_route))
             if(route = payload.fetch(:data, :rest_api, :action))
-              payload.set(:data, :router, :requested_route, route
+              payload.set(:data, :router, :requested_route, route)
             end
           end
         end
