@@ -16,7 +16,7 @@ module Fission
         # @param payload [Smash]
         def format(payload)
           unless(payload.get(:data, :router, :requested_route))
-            if(route = payload.fetch(:data, :rest_api, :action))
+            if(route = payload.get(:data, :rest_api, :action))
               payload.set(:data, :router, :requested_route, route)
             end
           end
