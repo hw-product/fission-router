@@ -116,7 +116,7 @@ module Fission
         route = payload.fetch(:data, :router, :requested_route,
           Carnivore::Config.get(:fission, :router, :routes, 'default')
         )
-        if(route.is_a?(String))
+        if(route.is_a?(String) || route.is_a?(Symbol))
           action = route
           route = Carnivore::Config.get(:fission, :router, :routes, route)
         else
