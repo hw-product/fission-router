@@ -13,6 +13,8 @@ module Fission
       def execute(message)
         payload = unpack(message)
         if(payload.get(:error))
+          message.confirm!
+          payload.set(:frozen, true)
           process_error(message, payload)
         else
           set_route(payload)
