@@ -18,7 +18,7 @@ module Fission
           unless(payload.get(:data, :router, :requested_route))
             if(path = payload.get(:data, :github, :url_path))
               route = path.split('/').last
-              unless_filtered(route, payload.get(:data, :github, :event) do
+              unless_filtered(route, payload.get(:data, :github, :event)) do
                 payload.set(:data, :router, :requested_route, route)
               end
             end
