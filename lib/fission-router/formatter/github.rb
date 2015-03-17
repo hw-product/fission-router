@@ -31,7 +31,7 @@ module Fission
         # @param route [String] requested route name
         # @param payload [Smash]
         # @return [Object] return value of block
-        def unless_filtered(route, github_event)
+        def unless_filtered(route, payload)
           allowed = events_filter(route, payload.get(:data, :github, :event)) &&
             ref_filter(route, payload.fetch(:data, :github, :ref,
               payload.get(:data, :github, payload.get(:data, :github, :event), :ref)
