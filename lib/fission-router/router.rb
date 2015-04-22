@@ -105,9 +105,15 @@ module Fission
       #
       # @param payload [Smash]
       # @return [Smash, NilClass] route information
-      # @todo the implementation!
       def user_defined_route(payload)
-        nil
+        if(route = payload.get(:data, :router, :requested_route))
+          if(route_path = config.get(:custom_routes, route))
+            Smash.new(
+              :name => route,
+              :path => route_path
+            )
+          end
+        end
       end
 
       # Determine route for given payload from configuration
