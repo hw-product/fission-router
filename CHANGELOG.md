@@ -1,3 +1,7 @@
+# v0.1.14
+* Add custom routing support
+* Add github formatter with filtering support
+
 # v0.1.12
 * Fix merging bug of payload routing
 * Remove explicit formatting within callback
