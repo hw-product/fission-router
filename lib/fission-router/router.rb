@@ -76,13 +76,40 @@ module Fission
         end
         destination = payload[:data][:router][:route].first
         if(destination)
-          info "Router is forwarding #{message} to next destination #{destination}"
-          transmit(destination, payload)
+          unless(custom_destination(destination, payload))
+            info "Router is forwarding #{message} to next destination #{destination}"
+            transmit(destination, payload)
+          end
           message.confirm!
         else
           info "Payload has completed custom routing. Marking #{message} as complete!"
           job_completed(:router, payload, message)
           process_complete(message, payload)
+        end
+      end
+
+      # Check configuration for custom destination matching name
+      # and transmit to endpoint if found
+      #
+      # @param destination [Symbol, String]
+      # @param payload [Smash]
+      # @return [TrueClass, FalseClass]
+      # @todo need to update persist allowing some validation checksum
+      #   to prevent remote ref updates
+      def custom_destination(destination, payload)
+        if(config.get(:allow_user_destinations) && config.get(:custom_services, destination))
+          warn "Custom endpoint detected and allowed for message #{message} named #{destination}"
+          asset_store.put("router-persist/#{payload[:message_id]}", MultiJson.dump(payload))
+          debug "Persisting payload data to asset store at: router-persist/#{payload[:message_id]}"
+          endpoint = config.get(:custom_services, destination)
+          debug "Router is forwarding #{message} to custom destination #{destination}"
+          send_data = payload.get(:data).merge(:ref => payload[:message_id])
+          # Remove account information from payload prior to send
+          send_data.delete(:account)
+          HTTP.post(endpoint, :json => send_data)
+          true
+        else
+          false
         end
       end
 
