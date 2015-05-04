@@ -11,16 +11,22 @@ module Fission
       #
       # @param message [Carnivore::Message]
       def execute(message)
-        payload = unpack(message)
-        if(payload.get(:error))
-          message.confirm!
-          payload.set(:frozen, true)
-          process_error(message, payload)
-        else
-          set_route(payload)
-          route_payload(message, payload)
+        failure_wrap(message) do |payload|
+          if(payload.get(:error))
+            message.confirm!
+            payload.set(:frozen, true)
+            process_error(message, payload)
+          else
+            if(!payload.get(:data, :account) && (config[:allow_user_routes] || config[:allow_user_destinations]))
+              transmit(:validator, payload)
+              message.confirm!
+            else
+              set_route(payload)
+              route_payload(message, payload)
+            end
+          end
+          async.store_payload(payload)
         end
-        async.store_payload(payload)
       end
 
       # If payload is in error state, send
@@ -54,7 +60,7 @@ module Fission
       # @param payload [Smash]
       # @return [Smash] payload
       def set_route(payload)
-        unless(payload.get(:data, :router, :route))
+        unless(payload.get(:data, :router, :action))
           route_info = discover_route(payload)
           payload.set(:data, :router, :route,
             [route_info[:path]].flatten.compact
@@ -76,7 +82,7 @@ module Fission
         end
         destination = payload[:data][:router][:route].first
         if(destination)
-          unless(custom_destination(destination, payload))
+          unless(custom_destination(destination, payload, message))
             info "Router is forwarding #{message} to next destination #{destination}"
             transmit(destination, payload)
           end
@@ -96,7 +102,8 @@ module Fission
       # @return [TrueClass, FalseClass]
       # @todo need to update persist allowing some validation checksum
       #   to prevent remote ref updates
-      def custom_destination(destination, payload)
+      # @todo ensure 200 response or kick to error state
+      def custom_destination(destination, payload, message)
         if(config.get(:allow_user_destinations) && config.get(:custom_services, destination))
           warn "Custom endpoint detected and allowed for message #{message} named #{destination}"
           asset_store.put("router-persist/#{payload[:message_id]}", MultiJson.dump(payload))
@@ -118,9 +125,7 @@ module Fission
       # @param payload [Smash]
       # @return [Smash] routing information
       def discover_route(payload)
-        if(enabled?(:data))
-          route = user_defined_route(payload)
-        end
+        route = user_defined_route(payload)
         unless(route)
           route = config_defined_route(payload)
         end
@@ -133,12 +138,15 @@ module Fission
       # @param payload [Smash]
       # @return [Smash, NilClass] route information
       def user_defined_route(payload)
-        if(route = payload.get(:data, :router, :requested_route))
-          if(route_path = config.get(:custom_routes, route))
-            Smash.new(
-              :name => route,
-              :path => route_path
-            )
+        if(config[:allow_user_routes])
+          if(route = payload.get(:data, :router, :requested_route))
+            if(route_path = config.get(:custom_routes, route))
+              debug "User defined route detected. Applying custom route (#{route})!"
+              Smash.new(
+                :name => route,
+                :path => route_path
+              )
+            end
           end
         end
       end
