@@ -106,7 +106,7 @@ module Fission
           send_data = payload.get(:data).merge(:ref => payload[:message_id])
           # Remove account information from payload prior to send
           send_data.delete(:account)
-          HTTP.post(endpoint, :json => send_data)
+          HTTP.post(endpoint, :json => new_payload(destination, send_data))
           true
         else
           false
