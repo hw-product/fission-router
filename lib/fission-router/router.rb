@@ -106,14 +106,15 @@ module Fission
       def custom_destination(destination, payload, message)
         if(config.get(:allow_user_destinations) && config.get(:custom_services, destination))
           warn "Custom endpoint detected and allowed for message #{message} named #{destination}"
-          asset_store.put("router-persist/#{payload[:message_id]}", MultiJson.dump(payload))
-          debug "Persisting payload data to asset store at: router-persist/#{payload[:message_id]}"
           endpoint = config.get(:custom_services, destination)
           debug "Router is forwarding #{message} to custom destination #{destination}"
           send_data = payload.get(:data).merge(:ref => payload[:message_id])
           # Remove account information from payload prior to send
           send_data.delete(:account)
-          HTTP.post(endpoint, :json => new_payload(destination, send_data))
+          custom_payload = new_payload(destination, send_data)
+          asset_store.put("router-persist/#{custom_payload[:message_id]}", MultiJson.dump(payload))
+          debug "Persisting payload data to asset store at: router-persist/#{custom_payload[:message_id]}"
+          HTTP.post(endpoint, :json => custom_payload)
           true
         else
           false
