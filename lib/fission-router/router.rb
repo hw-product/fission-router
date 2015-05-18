@@ -175,15 +175,52 @@ module Fission
       def user_defined_route(payload)
         if(config[:allow_user_routes])
           if(route = payload.get(:data, :router, :requested_route))
-            if(route_path = config.get(:custom_routes, route))
+            if(route_info = config.get(:custom_routes, route))
               debug "User defined route detected. Applying custom route (#{route})!"
+              apply_route_specific_configuration!(route, payload)
               Smash.new(
                 :name => route,
-                :path => route_path
+                :path => route_info[:path]
               )
             end
           end
         end
+      end
+
+      # Update account specific configuration data to provide what is
+      # required by the specified route
+      #
+      # @param route [String, Symbol] name of route
+      # @param payload [Smash]
+      # @return [Smash] payload
+      def apply_route_specific_configuration!(route, payload)
+        raw_config = Fission::Utils::Cipher.decrypt(
+          payload.get(:data, :account, :config),
+          :iv => payload[:message_id],
+          :key => app_config.fetch(:grouping, DEFAULT_SECRET)
+        )
+        raw_config = MultiJson.load(raw_config).to_smash
+        info = raw_config.get(:router, :custom_routes, route)
+        route_config = info[:configs].detect do |r_config|
+          r_config[:payload_matchers].all? do |p_matcher|
+            payload.get(*p_matcher[:payload_key].split('__')).to_s == p_matcher[:payload_value]
+          end
+        end
+        if(route_config)
+          new_config = route_config[:path].inject(Smash.new) do |key, memo|
+            memo.deep_merge(raw_config.get(:router, :configs, key))
+          end
+        else
+          new_config = Smash.new
+        end
+        new_config.delete(:router)
+        account_config = Fission::Utils::Cipher.encrypt(
+          MultiJson.dump(new_config),
+          :iv => payload[:message_id],
+          :key => app_config.fetch(:grouping, DEFAULT_SECRET)
+        )
+        payload.set(:data, :account, :config, account_config)
+        payload
       end
 
       # Determine route for given payload from configuration
