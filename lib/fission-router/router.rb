@@ -4,6 +4,9 @@ module Fission
   module Router
     class Router < Fission::Callback
 
+      # Keys restricted from custom services
+      RESTRICTED_DATA_KEYS = [:account, :router]
+
       # NOTE: no custom `valid?` since all received messages on this
       # source are valid
 
@@ -17,12 +20,17 @@ module Fission
             payload.set(:frozen, true)
             process_error(message, payload)
           else
-            if(!payload.get(:data, :account) && (config[:allow_user_routes] || config[:allow_user_destinations]))
-              transmit(:validator, payload)
-              message.confirm!
+            if(payload.get(:data, :router, :restore))
+              r_payload = restore_persisted_payload(payload)
+              route_payload(message, r_payload)
             else
-              set_route(payload)
-              route_payload(message, payload)
+              if(!payload.get(:data, :account) && (config[:allow_user_routes] || config[:allow_user_destinations]))
+                transmit(:validator, payload)
+                message.confirm!
+              else
+                set_route(payload)
+                route_payload(message, payload)
+              end
             end
           end
           async.store_payload(payload)
@@ -100,24 +108,50 @@ module Fission
       # @param destination [Symbol, String]
       # @param payload [Smash]
       # @return [TrueClass, FalseClass]
-      # @todo need to update persist allowing some validation checksum
-      #   to prevent remote ref updates
-      # @todo ensure 200 response or kick to error state
       def custom_destination(destination, payload, message)
         if(config.get(:allow_user_destinations) && config.get(:custom_services, destination))
           warn "Custom endpoint detected and allowed for message #{message} named #{destination}"
           endpoint = config.get(:custom_services, destination)
           debug "Router is forwarding #{message} to custom destination #{destination}"
-          send_data = payload.get(:data).merge(:ref => payload[:message_id])
+          send_data = payload.get(:data)
           # Remove account information from payload prior to send
-          send_data.delete(:account)
+          RESTRICTED_DATA_KEYS.each do |key|
+            send_data.delete(key)
+          end
+          send_data.set(:router, :restore, true)
           custom_payload = new_payload(destination, send_data)
           asset_store.put("router-persist/#{custom_payload[:message_id]}", MultiJson.dump(payload))
           debug "Persisting payload data to asset store at: router-persist/#{custom_payload[:message_id]}"
-          HTTP.post(endpoint, :json => custom_payload)
+          result = HTTP.post(endpoint, :json => custom_payload)
+          unless(result.status_code == 200)
+            abort "Custom service request failed (#{destination}): Status: #{result.status_code} - #{result.body.to_s}"
+          end
           true
         else
           false
+        end
+      end
+
+      # Restore payload and merge any new data from custom service
+      #
+      # @param payload [Smash] received payload
+      # @return [Smash] restored payload
+      def restore_payload(payload)
+        if(config.get(:allow_user_destinations))
+          begin
+            r_payload = asset_store.get("router-persist/#{payload[:message_id]}")
+            r_payload = MultiJson.load(r_payload).to_smash
+            p_data = payload.get(:data)
+            RESTRICTED_DATA_KEYS.each do |key|
+              p_data.delete(key)
+            end
+            r_payload[:data].deep_merge!(p_data)
+            r_payload
+          rescue => e
+            abort "Failed to restore payload for processing! Received payload ID: #{payload[:message_id]} - #{e.class}: #{e}"
+          end
+        else
+          abort 'Restore style payload received but user destinations are forbidden via configuration!'
         end
       end
 
