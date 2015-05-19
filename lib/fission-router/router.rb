@@ -122,9 +122,12 @@ module Fission
           custom_payload = new_payload(destination, send_data)
           asset_store.put("router-persist/#{custom_payload[:message_id]}", MultiJson.dump(payload))
           debug "Persisting payload data to asset store at: router-persist/#{custom_payload[:message_id]}"
+          debug "New payload generated for custom service: #{custom_payload.inspect}"
           result = HTTP.post(endpoint, :json => custom_payload)
           unless(result.status_code == 200)
             abort "Custom service request failed (#{destination}): Status: #{result.status_code} - #{result.body.to_s}"
+          else
+            info "Payload successfully delivered to remote custom service #{message}"
           end
           true
         else
