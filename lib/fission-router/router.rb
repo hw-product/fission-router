@@ -213,7 +213,9 @@ module Fission
         else
           new_config = Smash.new
         end
-        new_config.delete(:router)
+        new_config[:router] = Smash.new(
+          :custom_services => raw_config.fetch(:router, :custom_services, {})
+        )
         account_config = Fission::Utils::Cipher.encrypt(
           MultiJson.dump(new_config),
           :iv => payload[:message_id],
