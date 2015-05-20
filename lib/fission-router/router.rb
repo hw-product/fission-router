@@ -211,7 +211,7 @@ module Fission
         info = raw_config.get(:router, :custom_routes, route)
         route_config = info[:configs].detect do |r_config|
           r_config[:payload_matchers].all? do |p_matcher|
-            payload.get(*p_matcher[:payload_key].split('__')).to_s == p_matcher[:payload_value]
+            File.fnmatch(p_matcher[:payload_value].to_s, payload.get(*p_matcher[:payload_key].split('__')).to_s)
           end
         end
         if(route_config)
