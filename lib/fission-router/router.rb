@@ -21,8 +21,8 @@ module Fission
             process_error(message, payload)
           else
             if(payload.get(:data, :router, :restore))
-              r_payload = restore_persisted_payload(payload)
-              route_payload(message, r_payload)
+              payload = restore_payload(payload)
+              route_payload(message, payload)
             else
               if(!payload.get(:data, :account) && (config[:allow_user_routes] || config[:allow_user_destinations]))
                 transmit(:validator, payload)
@@ -113,15 +113,17 @@ module Fission
           warn "Custom endpoint detected and allowed for message #{message} named #{destination}"
           endpoint = config.get(:custom_services, destination)
           debug "Router is forwarding #{message} to custom destination #{destination}"
+          payload[:complete] << destination # set destination as complete on payload restore
           send_data = payload.get(:data)
+          custom_payload = new_payload(destination, send_data)
+          debug "Persisting payload data to asset store at: router-persist/#{custom_payload[:message_id]}"
+          asset_store.put("router-persist/#{custom_payload[:message_id]}", MultiJson.dump(payload))
+          debug "Persisted payload contents: #{payload.inspect}"
           # Remove account information from payload prior to send
           RESTRICTED_DATA_KEYS.each do |key|
-            send_data.delete(key)
+            custom_payload[:data].delete(key)
           end
-          send_data.set(:router, :restore, true)
-          custom_payload = new_payload(destination, send_data)
-          asset_store.put("router-persist/#{custom_payload[:message_id]}", MultiJson.dump(payload))
-          debug "Persisting payload data to asset store at: router-persist/#{custom_payload[:message_id]}"
+          custom_payload.set(:data, :router, :restore, true)
           debug "New payload generated for custom service: #{custom_payload.inspect}"
           result = HTTP.post(endpoint, :json => custom_payload)
           unless(result.status_code == 200)
@@ -144,11 +146,14 @@ module Fission
           begin
             r_payload = asset_store.get("router-persist/#{payload[:message_id]}")
             r_payload = MultiJson.load(r_payload).to_smash
+            debug "Restored payload from: router-persist/#{payload[:message_id]} - #{r_payload.inspect}"
             p_data = payload.get(:data)
             RESTRICTED_DATA_KEYS.each do |key|
               p_data.delete(key)
             end
             r_payload[:data].deep_merge!(p_data)
+            info "Restored payload from router-persist/#{payload[:message_id]} reviving message: #{r_payload[:message_id]}"
+            debug "Resulted restored payload: #{r_payload.inspect}"
             r_payload
           rescue => e
             abort "Failed to restore payload for processing! Received payload ID: #{payload[:message_id]} - #{e.class}: #{e}"
