@@ -185,7 +185,7 @@ module Fission
           if(route = payload.get(:data, :router, :requested_route))
             if(route_info = config.get(:custom_routes, route))
               debug "User defined route detected. Applying custom route (#{route})!"
-              apply_route_specific_configuration!(route, payload)
+              apply_route_specific_configuration(route, payload)
               Smash.new(
                 :name => route,
                 :path => route_info[:path]
@@ -195,13 +195,37 @@ module Fission
         end
       end
 
+      # Check if payload matches any filter sets
+      #
+      # @param filters [Smash] filter sets to test
+      # @param payload [Smash]
+      # @return [TrueClass]
+      # @raises [StandardError] failure to match any filter sets
+      # @note If no filter sets are defined, payload will be
+      #   restricted from entry. This is by design!
+      # @todo Should no filter sets be optional pass via config?
+      def apply_route_payload_filters!(filters, payload)
+        result = filters.any? do |f_name, f_matchers|
+          f_matchers.all? do |p_matcher|
+            File.fnmatch(
+              p_matcher[:payload_value].to_s,
+              payload.get(*p_matcher[:payload_key].split('__')).to_s
+            )
+          end
+        end
+        unless(result)
+          raise "Failed to match any filter sets. Payload restricted from entry! (ID: #{payload[:message_id]})"
+        end
+        true
+      end
+
       # Update account specific configuration data to provide what is
       # required by the specified route
       #
       # @param route [String, Symbol] name of route
       # @param payload [Smash]
       # @return [Smash] payload
-      def apply_route_specific_configuration!(route, payload)
+      def apply_route_specific_configuration(route, payload)
         raw_config = Fission::Utils::Cipher.decrypt(
           payload.get(:data, :account, :config),
           :iv => payload[:message_id],
@@ -209,9 +233,13 @@ module Fission
         )
         raw_config = MultiJson.load(raw_config).to_smash
         info = raw_config.get(:router, :custom_routes, route)
+        apply_route_payload_filters!(info.fetch(:payload_filters, {}), payload)
         route_config = info[:configs].detect do |r_config|
           r_config[:payload_matchers].all? do |p_matcher|
-            File.fnmatch(p_matcher[:payload_value].to_s, payload.get(*p_matcher[:payload_key].split('__')).to_s)
+            File.fnmatch(
+              p_matcher[:payload_value].to_s,
+              payload.get(*p_matcher[:payload_key].split('__')).to_s
+            )
           end
         end
         if(route_config)
