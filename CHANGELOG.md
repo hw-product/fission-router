@@ -1,3 +1,8 @@
+# v0.1.16
+* Add support for routing to custom services
+* Support optional custom configuration from payload data
+* Add support for payload filtering
+
 # v0.1.14
 * Add custom routing support
 * Add github formatter with filtering support
