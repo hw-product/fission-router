@@ -9,6 +9,6 @@ Gem::Specification.new do |s|
   s.homepage = 'http://github.com/heavywater/fission-router'
   s.description = 'Fission Router'
   s.require_path = 'lib'
-  s.add_dependency 'fission'
+  s.add_dependency 'fission', '>= 0.2.4', '< 1.0.0'
   s.files = Dir['{lib}/**/**/*'] + %w(fission-router.gemspec README.md CHANGELOG.md)
 end
