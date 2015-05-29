@@ -25,6 +25,7 @@ module Fission
               route_payload(message, payload)
             else
               if(!payload.get(:data, :account) && (config[:allow_user_routes] || config[:allow_user_destinations]))
+                store_payload(payload)
                 transmit(:validator, payload)
                 message.confirm!
               else
@@ -33,7 +34,6 @@ module Fission
               end
             end
           end
-          async.store_payload(payload)
         end
       end
 
@@ -44,6 +44,7 @@ module Fission
       # @param payload [Smash]
       # @return [Smash] payload
       def process_error(message, payload)
+        store_payload(payload)
         [discover_route(payload)[:error]].flatten.compact.each do |dest|
           warn "Error routing for message (#{message}) -> #{dest}"
           transmit(dest, payload)
@@ -57,6 +58,7 @@ module Fission
       # @param payload [Smash]
       # @return [Smash] payload
       def process_complete(message, payload)
+        store_payload(payload)
         [discover_route(payload)[:complete]].flatten.compact.each do |dest|
           info "Complete routing for message (#{message}) -> #{dest}"
           transmit(dest, payload)
@@ -92,6 +94,7 @@ module Fission
         if(destination)
           unless(custom_destination(destination, payload, message))
             info "Router is forwarding #{message} to next destination #{destination}"
+            store_payload(payload)
             transmit(destination, payload)
           end
           message.confirm!
@@ -124,6 +127,7 @@ module Fission
             custom_payload[:data].delete(key)
           end
           custom_payload.set(:data, :router, :restore, true)
+          store_payload(payload)
           debug "New payload generated for custom service: #{custom_payload.inspect}"
           result = HTTP.post(endpoint, :json => custom_payload)
           unless(result.status_code == 200)
@@ -283,6 +287,19 @@ module Fission
           )
         end
         route
+      end
+
+      # Override to simple log error if storage fails
+      #
+      # @param payload [Smash]
+      # @return [TrueClass, NilClass]
+      def store_payload(payload)
+        begin
+          super
+        rescue => e
+          error "Failed to store payload instance for message ID: #{payload[:message_id]}. Reason: #{e.class} - #{e}"
+          false
+        end
       end
 
     end
