@@ -243,7 +243,7 @@ module Fission
           end
         end
         if(route_config)
-          new_config = route_config[:path].inject(Smash.new) do |key, memo|
+          new_config = route_config[:config_packs].reverse.inject(Smash.new) do |memo, key|
             memo.deep_merge(raw_config.get(:router, :configs, key))
           end
         else
