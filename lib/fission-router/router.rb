@@ -24,6 +24,10 @@ module Fission
             process_error(message, payload)
           else
             if(!payload.get(:data, :account) && (config[:allow_user_routes] || config[:allow_user_destinations]))
+              if(payload.get(:data, :router, :validate_requested))
+                abort "Failed to validate message. Forcing message discard (#{message})"
+              end
+              payload.set(:data, :router, :validate_requested, true)
               store_payload(payload)
               transmit(:validator, payload)
               message.confirm!
