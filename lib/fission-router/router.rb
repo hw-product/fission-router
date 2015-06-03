@@ -15,23 +15,21 @@ module Fission
       # @param message [Carnivore::Message]
       def execute(message)
         failure_wrap(message) do |payload|
+          if(payload.get(:data, :router, :restore))
+            payload = restore_payload(payload)
+          end
           if(payload.get(:error))
             message.confirm!
             payload.set(:frozen, true)
             process_error(message, payload)
           else
-            if(payload.get(:data, :router, :restore))
-              payload = restore_payload(payload)
-              route_payload(message, payload)
+            if(!payload.get(:data, :account) && (config[:allow_user_routes] || config[:allow_user_destinations]))
+              store_payload(payload)
+              transmit(:validator, payload)
+              message.confirm!
             else
-              if(!payload.get(:data, :account) && (config[:allow_user_routes] || config[:allow_user_destinations]))
-                store_payload(payload)
-                transmit(:validator, payload)
-                message.confirm!
-              else
-                set_route(payload)
-                route_payload(message, payload)
-              end
+              set_route(payload)
+              route_payload(message, payload)
             end
           end
         end
@@ -157,6 +155,11 @@ module Fission
             end
             r_payload[:data].deep_merge!(p_data)
             info "Restored payload from router-persist/#{payload[:message_id]} reviving message: #{r_payload[:message_id]}"
+            if(payload[:error])
+              warn "Received payload in error state. Updating restored payload state: #{r_payload[:message_id]}"
+              r_payload[:error] = payload[:error]
+              r_payload[:status] = 'error'
+            end
             debug "Resulted restored payload: #{r_payload.inspect}"
             r_payload
           rescue => e
