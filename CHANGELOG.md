@@ -1,3 +1,9 @@
+# v0.1.18
+* Apply fix for config pack merges
+* Update how payload is stored (remove async storage behavior)
+* Detect error state of remote job when restoring payload
+* Flag validation attempt to prevent looping
+
 # v0.1.16
 * Add support for routing to custom services
 * Support optional custom configuration from payload data
