@@ -1,9 +1,41 @@
+require 'fission-data'
 require 'fission-router'
+require 'fission-validator'
+
 require_relative 'callbacks/foo'
 require_relative 'callbacks/bar'
 require 'pry'
 
 DEFAULT_SECRET = 'foo'
+
+module Fission::Utils::Cipher
+  def self.decrypt(msg, h)
+    { :router =>
+      { :custom_routes =>
+        { :bar => { :configs => []}}}}.to_json
+  end
+end
+
+class Fission::Router::Router
+  def app_config
+    Smash.new
+  end
+  def apply_route_payload_filters!(filters, payload)
+    true
+  end
+end
+
+class Fission::Validator::Github < Fission::Callback
+  def execute(message)
+    failure_wrap(message) do |payload|
+      h = { :id   => 1,
+            :name => 'foo',
+            :config => "{}" }
+      payload.set(:data, :account, h.to_smash)
+      job_completed(:validator, payload, message)
+    end
+  end
+end
 
 describe Fission::Router::Router do
 
@@ -17,7 +49,7 @@ describe Fission::Router::Router do
   let(:actor) { Carnivore::Supervisor.supervisor[:router] }
 
   it 'routes to default path with no route provided' do
-    result = transmit_and_wait(actor, payload)
+    result = transmit_and_wait(actor, transmit_and_wait(actor, payload))
     callback_executed?(result).must_equal true
     result[:complete].must_include('foo')
   end
@@ -26,14 +58,25 @@ describe Fission::Router::Router do
     h = { :router => { :action => 'default',
                        :route  => [:foo, :bar] }}
 
-    r1 = transmit_and_wait(actor, payload(h))
+    r0 = transmit_and_wait(actor, payload(h))
+    r1 = transmit_and_wait(actor, r0)
     r2 = transmit_and_wait(actor, r1)
+
     ['foo', 'bar'].all? { |route| r2[:complete].must_include(route) }
+  end
+
+  it 'processes user defined route over config defined one' do
+    h = { :router => { :requested_route => :bar }}
+
+    r0 = transmit_and_wait(actor, payload(h))
+    r1 = transmit_and_wait(actor, r0)
+    r1[:complete].must_include('bar')
   end
 
   private
 
   def payload(opts = {})
-    Jackal::Utils.new_payload(:test, opts)
+    h = { :validator => { :github => { :repository => 'foo' }}}
+    Jackal::Utils.new_payload(:test, opts.merge(h))
   end
 end
