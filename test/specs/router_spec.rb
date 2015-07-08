@@ -1,5 +1,9 @@
 require 'fission-router'
+require_relative 'callbacks/foo'
+require_relative 'callbacks/bar'
 require 'pry'
+
+DEFAULT_SECRET = 'foo'
 
 describe Fission::Router::Router do
 
@@ -12,19 +16,24 @@ describe Fission::Router::Router do
 
   let(:actor) { Carnivore::Supervisor.supervisor[:router] }
 
-
-  it 'executes with empty payload and sets empty route' do
+  it 'routes to default path with no route provided' do
     result = transmit_and_wait(actor, payload)
     callback_executed?(result).must_equal true
-    
-    expected = { :route => [], :action => 'default' }.to_smash
-    result[:data][:router].must_equal(expected)
+    result[:complete].must_include('foo')
+  end
+
+  it 'routes to all services specified in the payload' do
+    h = { :router => { :action => 'default',
+                       :route  => [:foo, :bar] }}
+
+    r1 = transmit_and_wait(actor, payload(h))
+    r2 = transmit_and_wait(actor, r1)
+    ['foo', 'bar'].all? { |route| r2[:complete].must_include(route) }
   end
 
   private
 
   def payload(opts = {})
-    h = { :data => opts }
-    Jackal::Utils.new_payload(:test, h)
+    Jackal::Utils.new_payload(:test, opts)
   end
 end
