@@ -6,6 +6,7 @@ Configuration.new do
 
       routes do
         default.path :foo
+        baz.complete :foo
       end
     end
 
@@ -14,6 +15,7 @@ Configuration.new do
       validator.type 'actor'
       foo.type 'actor'
       bar.type 'actor'
+      baz.type 'actor'
       test.type 'spec'
     end
 
@@ -22,6 +24,7 @@ Configuration.new do
       validator 1
       foo 1
       bar 1
+      baz 1
     end
 
     loaders do

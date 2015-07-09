@@ -10,9 +10,13 @@ DEFAULT_SECRET = 'foo'
 
 module Fission::Utils::Cipher
   def self.decrypt(msg, h)
-    { :router =>
-      { :custom_routes =>
-        { :bar => { :configs => []}}}}.to_json
+    {
+      :router => {
+        :custom_routes => {
+          :bar => { :configs => [] }
+        }
+      }
+    }.to_json
   end
 end
 
@@ -28,9 +32,11 @@ end
 class Fission::Validator::Github < Fission::Callback
   def execute(message)
     failure_wrap(message) do |payload|
-      h = { :id   => 1,
-            :name => 'foo',
-            :config => "{}" }
+      h = {
+        :id   => 1,
+        :name => 'foo',
+        :config => "{}"
+      }
       payload.set(:data, :account, h.to_smash)
       job_completed(:validator, payload, message)
     end
@@ -54,10 +60,24 @@ describe Fission::Router::Router do
     result[:complete].must_include('foo')
   end
 
-  it 'routes to all services specified in the payload' do
-    h = { :router => { :action => 'default',
-                       :route  => [:foo, :bar] }}
+  it 'redirects to route specified in complete config' do
+    h = {
+      :router => {
+        :requested_route => :baz
+      }
+    }
+    r0 = transmit_and_wait(actor, payload(h))
+    r1 = transmit_and_wait(actor, r0)
+    r1[:complete].must_include('foo')
+  end
 
+  it 'routes to all services specified in the payload' do
+    h = {
+      :router => {
+        :action => 'default',
+        :route  => [:foo, :bar]
+      }
+    }
     r0 = transmit_and_wait(actor, payload(h))
     r1 = transmit_and_wait(actor, r0)
     r2 = transmit_and_wait(actor, r1)
@@ -65,9 +85,26 @@ describe Fission::Router::Router do
     ['foo', 'bar'].all? { |route| r2[:complete].must_include(route) }
   end
 
-  it 'processes user defined route over config defined one' do
-    h = { :router => { :requested_route => :bar }}
+  it 'routes to all services specified in requested path' do
+    Carnivore::Config.delete(:allow_user_routes)
+    h = {
+      :router => {
+        :requested_route => { :path => [:foo, :bar] }
+      }
+    }
 
+    r0 = transmit_and_wait(actor, payload(h))
+    r1 = transmit_and_wait(actor, r0)
+    r2 = transmit_and_wait(actor, r1)
+    ['foo', 'bar'].all? { |route| r2[:complete].must_include(route) }
+  end
+
+  it 'processes user defined route over config defined one' do
+    h = {
+      :router => {
+        :requested_route => :bar
+      }
+    }
     r0 = transmit_and_wait(actor, payload(h))
     r1 = transmit_and_wait(actor, r0)
     r1[:complete].must_include('bar')
