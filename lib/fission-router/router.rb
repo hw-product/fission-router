@@ -118,10 +118,11 @@ module Fission
           warn "Custom endpoint detected and allowed for message #{message} named #{destination}"
           endpoint = config.get(:custom_services, destination)
           debug "Router is forwarding #{message} to custom destination #{destination}"
-          payload[:custom_serivce_info] = Smash.new(
+          payload[:custom_service_info] = Smash.new(
             :destination => destination,
             :endpoint => endpoint
           )
+          payload[:complete] << destination
           send_data = payload.get(:data)
           custom_payload = new_payload(destination, send_data)
           debug "Persisting payload data to asset store at: router-persist/#{custom_payload[:message_id]}"
@@ -172,8 +173,6 @@ module Fission
               warn "Received payload in error state. Updating restored payload state: #{r_payload[:message_id]}"
               r_payload[:error] = payload[:error]
               r_payload[:status] = 'error'
-            else
-              r_payload[:complete] << srv_info[:destination]
             end
             debug "Resulted restored payload: #{r_payload.inspect}"
             event!(:service_complete,
