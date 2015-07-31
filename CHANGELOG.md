@@ -1,3 +1,6 @@
+# v0.1.20
+* Add info events on custom service start and complete
+
 # v0.1.18
 * Apply fix for config pack merges
 * Update how payload is stored (remove async storage behavior)
