@@ -1,3 +1,6 @@
+# v0.1.22
+* Fix typo in hash key usage
+
 # v0.1.20
 * Add info events on custom service start and complete
 
