@@ -118,7 +118,10 @@ module Fission
           warn "Custom endpoint detected and allowed for message #{message} named #{destination}"
           endpoint = config.get(:custom_services, destination)
           debug "Router is forwarding #{message} to custom destination #{destination}"
-          payload[:complete] << destination # set destination as complete on payload restore
+          payload[:custom_serivce_info] = Smash.new(
+            :destination => destination,
+            :endpoint => endpoint
+          )
           send_data = payload.get(:data)
           custom_payload = new_payload(destination, send_data)
           debug "Persisting payload data to asset store at: router-persist/#{custom_payload[:message_id]}"
@@ -136,6 +139,11 @@ module Fission
             abort "Custom service request failed (#{destination}): Status: #{result.status_code} - #{result.body.to_s}"
           else
             info "Payload successfully delivered to remote custom service #{message}"
+            event!(:service_start,
+              :message_id => payload[:message_id],
+              :service_name => destination,
+              :host => endpoint
+            )
           end
           true
         else
@@ -159,12 +167,21 @@ module Fission
             end
             r_payload[:data].deep_merge!(p_data)
             info "Restored payload from router-persist/#{payload[:message_id]} reviving message: #{r_payload[:message_id]}"
+            srv_info = r_payload.delete(:custom_service_info)
             if(payload[:error])
               warn "Received payload in error state. Updating restored payload state: #{r_payload[:message_id]}"
               r_payload[:error] = payload[:error]
               r_payload[:status] = 'error'
+            else
+              r_payload[:complete] << srv_info[:destination]
             end
             debug "Resulted restored payload: #{r_payload.inspect}"
+            event!(:service_complete,
+              :message_id => r_payload[:message_id],
+              :service_name => srv_info[:destination],
+              :callback_name => '<custom>',
+              :host => srv_info[:endpoint]
+            )
             r_payload
           rescue => e
             abort "Failed to restore payload for processing! Received payload ID: #{payload[:message_id]} - #{e.class}: #{e}"
