@@ -1,3 +1,6 @@
+# v0.1.24
+* Provide globally applied completion handlers
+
 # v0.1.22
 * Fix typo in hash key usage
 
