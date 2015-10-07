@@ -22,6 +22,7 @@ module Fission
             message.confirm!
             payload.set(:frozen, true)
             process_error(message, payload)
+            error "Message failed processing (#{message}) - #{payload.get(:error)}"
           else
             if(!payload.get(:data, :account) && (config[:allow_user_routes] || config[:allow_user_destinations]))
               if(payload.get(:data, :router, :validate_requested))
@@ -47,7 +48,7 @@ module Fission
       # @return [Smash] payload
       def process_error(message, payload)
         store_payload(payload)
-        [discover_route(payload)[:error]].flatten.compact.each do |dest|
+        [discover_route(payload)[:error], config.get(:handlers, :error)].flatten.compact.uniq.each do |dest|
           warn "Error routing for message (#{message}) -> #{dest}"
           transmit(dest, payload)
         end
@@ -61,7 +62,7 @@ module Fission
       # @return [Smash] payload
       def process_complete(message, payload)
         store_payload(payload)
-        [discover_route(payload)[:complete]].flatten.compact.each do |dest|
+        [discover_route(payload)[:complete], config.get(:handlers, :complete)].flatten.compact.uniq.each do |dest|
           info "Complete routing for message (#{message}) -> #{dest}"
           transmit(dest, payload)
         end
