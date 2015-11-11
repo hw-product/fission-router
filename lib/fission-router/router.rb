@@ -271,6 +271,7 @@ module Fission
           end
         end
         if(route_config)
+          payload.set(:data, :router, :route_config, route_config[:name])
           new_config = route_config[:config_packs].reverse.inject(Smash.new) do |memo, key|
             memo.deep_merge(raw_config.get(:router, :configs, key))
           end
@@ -320,6 +321,8 @@ module Fission
       def store_payload(payload)
         begin
           super
+        rescue Zoidberg::DeadException
+          raise
         rescue => e
           error "Failed to store payload instance for message ID: #{payload[:message_id]}. Reason: #{e.class} - #{e}"
           false
