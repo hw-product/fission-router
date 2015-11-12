@@ -1,3 +1,6 @@
+# v0.1.26
+* Store name of route configuration applied to payload
+
 # v0.1.24
 * Provide globally applied completion handlers
 
