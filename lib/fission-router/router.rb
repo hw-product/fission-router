@@ -236,7 +236,7 @@ module Fission
         result = filters.any? do |f_name, f_matchers|
           f_matchers.all? do |p_matcher|
             p_value = payload.get(*p_matcher[:payload_key].split('__'))
-            p_value && File.fnmatch(p_matcher[:payload_value].to_s, p_value)
+            p_value && File.fnmatch(p_matcher[:payload_value].to_s, p_value, File::FNM_EXTGLOB)
           end
         end
         unless(result)
@@ -264,7 +264,8 @@ module Fission
           r_config[:payload_matchers].all? do |p_matcher|
             File.fnmatch(
               p_matcher[:payload_value].to_s,
-              payload.get(*p_matcher[:payload_key].split('__')).to_s
+              payload.get(*p_matcher[:payload_key].split('__')).to_s,
+              File::FNM_EXTGLOB
             )
           end
         end
